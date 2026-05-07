@@ -101,6 +101,8 @@ pnpm lint
 1. **LLM 调用**：使用内置 `coze-coding-dev-sdk`，沙箱内网调用，稳定快速
 2. **知识库持久化**：当前使用 PostgreSQL + Drizzle ORM，旧的表格化存储方案不再维护
 3. **Hydration 问题**：使用 Zustand 持久化状态，避免 SSR/CSR 不一致
+4. **数据库延迟初始化**：`src/lib/db.ts` 使用 Proxy 实现延迟初始化，允许在不设置 `DATABASE_URL` 的情况下进行构建。实际连接在首次 API 调用时才建立。
+5. **构建时环境变量**：构建时不需要 `DATABASE_URL`，运行时必须设置。
 
 ## 日志系统
 

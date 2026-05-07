@@ -1,24 +1,48 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is not set");
-}
-
+// 使用全局存储来保持跨请求的连接池
 const globalForDb = globalThis as typeof globalThis & {
   __readInsightPgPool?: Pool;
+  __db?: ReturnType<typeof drizzle>;
 };
 
-const pool =
-  globalForDb.__readInsightPgPool ??
-  new Pool({
-    connectionString: process.env.DATABASE_URL,
-  });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForDb.__readInsightPgPool = pool;
+// 获取或创建数据库连接池（延迟初始化）
+function getPool(): Pool {
+  if (!globalForDb.__readInsightPgPool) {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL is not set");
+    }
+    globalForDb.__readInsightPgPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+    });
+  }
+  return globalForDb.__readInsightPgPool;
 }
 
-export const db = drizzle(pool);
+// 获取或创建 drizzle 实例（延迟初始化）
+function createDb(): ReturnType<typeof drizzle> {
+  if (!globalForDb.__db) {
+    globalForDb.__db = drizzle(getPool());
+  }
+  return globalForDb.__db;
+}
 
-export { pool };
+// 使用 getter 模式实现延迟访问，保持 db 的对象语义
+let _db: ReturnType<typeof drizzle> | null = null;
+const dbProxy = new Proxy({} as ReturnType<typeof drizzle>, {
+  get(_target, prop, receiver) {
+    if (!_db) {
+      _db = createDb();
+    }
+    return Reflect.get(_db, prop, receiver);
+  },
+});
+
+// 仅在生产环境持久化到 global（开发环境每个热更新会重新创建）
+if (process.env.NODE_ENV === "production") {
+  globalForDb.__db = dbProxy as ReturnType<typeof drizzle>;
+}
+
+export const db = dbProxy;
+export { getPool };
