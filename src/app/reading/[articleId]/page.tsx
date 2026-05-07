@@ -6,11 +6,9 @@ import { useAppStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   ArrowLeft,
   BookOpen,
-  Clock,
   FileText,
   ChevronRight,
   Sparkles,
@@ -66,7 +64,6 @@ export default function ReadingPage() {
   const completedParagraphs = currentArticle.paragraphs.filter(
     (p) => p.status === "completed"
   ).length;
-  const progressPercent = totalParagraphs > 0 ? (completedParagraphs / totalParagraphs) * 100 : 0;
 
 
   return (
@@ -113,19 +110,6 @@ export default function ReadingPage() {
               <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
                 <FileText className="w-4 h-4" />
                 <span>{totalParagraphs} 段落</span>
-              </div>
-              <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
-                <Clock className="w-4 h-4" />
-                <span>约 {currentArticle.readingTime} 分钟</span>
-              </div>
-              <div className="flex-1 min-w-[200px]">
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-[var(--muted-foreground)]">学习进度</span>
-                  <span className="font-medium text-[var(--foreground)]">
-                    {completedParagraphs} / {totalParagraphs}
-                  </span>
-                </div>
-                <Progress value={progressPercent} className="h-2" />
               </div>
             </div>
           </CardContent>
