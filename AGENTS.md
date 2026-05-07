@@ -219,3 +219,61 @@ grep "2024-01-15T10:" /app/work/logs/bypass/app.log | tail -n 50
 | data/meta | 上下文数据（可选） |
 | url | 请求 URL（前端日志） |
 | userAgent | 浏览器信息（前端日志） |
+
+## Coze 平台配置
+
+### `.coze` 配置说明
+
+项目根目录 `/workspace/projects/.coze` 的配置如下：
+
+```toml
+[project]
+sub_id = "21820635"
+name = "english-reading-tool"
+requires = ["nodejs-24"]
+project_type = "web"
+entrypoint = "dist/server.js"
+
+[preview]
+preview_enable = "enabled"
+
+[dev]
+build = [ "bash", "./scripts/prepare.sh" ]
+run = [ "bash", "./scripts/dev.sh" ]
+deps = [ "git" ]
+
+[deploy]
+build = [ "bash", "./scripts/build.sh" ]
+run = [ "bash", "./scripts/start.sh" ]
+deps = [ "git" ]
+
+[deploy.profile]
+kind = "service"
+flavor = "web"
+
+[deploy.backend]
+enabled = true
+```
+
+### 预览链路
+
+- **预览端口**: 5000
+- **预览命令**: `bash ./scripts/dev.sh`
+- **开发服务器**: 自定义 Next.js server (`src/server.ts`)，绑定 `0.0.0.0:5000`
+- **预览验证**: `curl http://localhost:5000` 返回 200
+
+### 部署链路
+
+- **构建**: `bash ./scripts/build.sh`
+  - 安装依赖 (`pnpm install`)
+  - 构建 Next.js 项目 (`pnpm next build`)
+  - 打包 server (`pnpm tsup src/server.ts`)
+- **启动**: `bash ./scripts/start.sh`
+  - 启动打包后的服务 (`node dist/server.js`)
+  - 端口: 5000
+
+### 技术项目与工作区关系
+
+- 工作区根目录: `/workspace/projects`
+- 技术项目根目录: `/workspace/projects`（重合）
+- `.coze` 位置: `/workspace/projects/.coze`（同时承担根 `.coze` 和子项目 `.coze` 的职责）
