@@ -12,6 +12,7 @@ import {
   FileText,
   ChevronRight,
   Sparkles,
+  FileTextIcon,
 } from "lucide-react";
 
 export default function ReadingPage() {
@@ -114,6 +115,25 @@ export default function ReadingPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* AI Summary */}
+        {currentArticle.aiSummary && (
+          <Card className="mb-8 border-0 bg-gradient-to-br from-[var(--primary-light)]/50 to-white shadow-md">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-[var(--primary)]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Sparkles className="w-4 h-4 text-[var(--primary)]" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-[var(--foreground)] mb-2">文章概要</h3>
+                  <p className="text-[var(--muted-foreground)] leading-relaxed">
+                    {currentArticle.aiSummary}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
 
         {/* Paragraphs List */}

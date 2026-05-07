@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { load } from "cheerio";
 import { logger } from "@/lib/logger";
+import { invokeLLM } from "@/lib/llm";
 import type {
   Paragraph,
   ParseArticleRequest,
@@ -179,6 +180,55 @@ function parsePaste(title: string | undefined, content: string): { title: string
   return { title: articleTitle, paragraphs };
 }
 
+// 生成 AI 文章总结
+async function generateArticleSummary(
+  title: string,
+  paragraphs: string[]
+): Promise<string | undefined> {
+  try {
+    // 取前 5 个段落（最多约 1000 字符）用于生成总结
+    const contentForSummary = paragraphs.slice(0, 5).join("\n\n");
+    const truncatedContent = contentForSummary.length > 1500
+      ? contentForSummary.substring(0, 1500) + "..."
+      : contentForSummary;
+
+    const response = await invokeLLM(
+      [
+        {
+          role: "system",
+          content: `你是一位专业的英文文章阅读助手，擅长用简洁的中文帮助读者快速了解文章内容。
+
+请根据提供的英文文章内容，写一段简洁的中文总结，包括：
+1. 文章的主题是什么
+2. 文章的主要观点或内容
+3. 文章的目标读者或用途
+
+总结要求：
+- 用简洁的中文书写
+- 长度控制在 100-200 字
+- 不要使用列表格式，用连贯的段落书写
+- 直接给出总结内容，不要说"这篇文章..."之类的开场白`,
+        },
+        {
+          role: "user",
+          content: `文章标题：${title}
+
+文章内容：
+${truncatedContent}
+
+请为读者写一段简洁的中文总结。`,
+        },
+      ],
+      0.7
+    );
+
+    return response.content.trim();
+  } catch (error) {
+    logger.warn("Failed to generate article summary", { error });
+    return undefined;
+  }
+}
+
 // POST /api/article/parse
 export async function POST(request: NextRequest) {
   try {
@@ -237,6 +287,9 @@ export async function POST(request: NextRequest) {
       status: "unread" as const,
     }));
 
+    // 生成 AI 总结
+    const aiSummary = await generateArticleSummary(title, paragraphs);
+
     // 推荐段落（L2 难度左右的）
     const recommendedParagraphs = paragraphObjects
       .filter((p) => p.content.length > 80 && p.content.length < 400)
@@ -251,6 +304,7 @@ export async function POST(request: NextRequest) {
       wordCount,
       readingTime,
       recommendedParagraphs,
+      aiSummary,
     };
 
     return NextResponse.json<ApiResponse<ParseArticleResponse>>({

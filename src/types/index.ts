@@ -63,6 +63,8 @@ export interface Article {
   status: ArticleStatus;
   practicedCount?: number;
   knowledgePointCount?: number;
+  // AI 生成的文章总结
+  aiSummary?: string;
 }
 
 // ============================================================
@@ -237,6 +239,8 @@ export interface ParseArticleResponse {
   wordCount: number;
   readingTime: number;
   recommendedParagraphs: string[];
+  // AI 生成的文章总结
+  aiSummary?: string;
 }
 
 export interface DiagnoseRequest {
