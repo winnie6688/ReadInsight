@@ -9,10 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft,
   BookOpen,
-  FileText,
   ChevronRight,
   Sparkles,
-  FileTextIcon,
 } from "lucide-react";
 
 export default function ReadingPage() {
@@ -61,7 +59,6 @@ export default function ReadingPage() {
   };
 
   // 统计数据
-  const totalParagraphs = currentArticle.paragraphs.length;
   const completedParagraphs = currentArticle.paragraphs.filter(
     (p) => p.status === "completed"
   ).length;
@@ -104,18 +101,6 @@ export default function ReadingPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-8">
-        {/* Article Info */}
-        <Card className="mb-8 border-0 bg-gradient-to-r from-[var(--primary-light)] to-white shadow-lg">
-          <CardContent className="p-6">
-            <div className="flex flex-wrap items-center gap-6">
-              <div className="flex items-center gap-2 text-[var(--muted-foreground)]">
-                <FileText className="w-4 h-4" />
-                <span>{totalParagraphs} 段落</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* AI Summary */}
         {currentArticle.aiSummary && (
           <Card className="mb-8 border-0 bg-gradient-to-br from-[var(--primary-light)]/50 to-white shadow-md">
