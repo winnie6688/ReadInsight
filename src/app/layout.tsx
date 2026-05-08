@@ -37,7 +37,7 @@ export default function RootLayout({
 
   return (
     <html lang="zh-CN">
-      <body className={`antialiased min-h-screen bg-[var(--background)]`}>
+      <body className={`antialiased min-h-screen bg-[var(--background)]`} suppressHydrationWarning>
         <ClientLayout>
           {isDev && <Inspector />}
           {children}
