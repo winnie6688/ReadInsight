@@ -450,7 +450,7 @@ export default function HomePage() {
                         />
                       </div>
                       <p className="text-xs text-[var(--muted-foreground)] mt-1">
-                        {article.paragraphs.filter((p) => p.status === "completed").length} / {article.paragraphs.length} 段落已练习
+                        {article.paragraphs.filter((p) => p.status === "completed").length} / {article.paragraphs.length} 段落已阅读
                       </p>
                     </div>
                   </CardContent>
