@@ -1,5 +1,13 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { createClient } from "@supabase/supabase-js";
+
+// Supabase 连接配置
+const supabaseUrl = "https://ltlugfdpgqdlddpgrtjl.supabase.co";
+const supabaseKey = "Woshiyouqianren";
+
+// Supabase 客户端（用于知识库 API）
+export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // 使用全局存储来保持跨请求的连接池
 const globalForDb = globalThis as typeof globalThis & {
@@ -10,11 +18,11 @@ const globalForDb = globalThis as typeof globalThis & {
 // 获取或创建数据库连接池（延迟初始化）
 function getPool(): Pool {
   if (!globalForDb.__readInsightPgPool) {
-    if (!process.env.DATABASE_URL) {
-      throw new Error("DATABASE_NOT_CONFIGURED: 请配置 DATABASE_URL 环境变量以启用知识库功能");
-    }
+    // Supabase 连接池地址
+    const connectionString = `postgresql://postgres.ltlugfdpgqdlddpgrtjl:Woshiyouqianren@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres`;
     globalForDb.__readInsightPgPool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString,
+      max: 10,
     });
   }
   return globalForDb.__readInsightPgPool;
