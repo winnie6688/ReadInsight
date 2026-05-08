@@ -125,7 +125,7 @@ export default function ReadingPage() {
         <div className="space-y-4">
           <h2 className="text-lg font-bold text-[var(--foreground)] flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-[var(--muted-foreground)]" />
-            选择段落练习
+            选择段落
           </h2>
 
           {currentArticle.paragraphs.map((paragraph, index) => {
