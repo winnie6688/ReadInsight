@@ -511,7 +511,6 @@ interface UserProgress {
 | 端点 | 方法 | 说明 | 请求体 | 响应 |
 |------|------|------|--------|------|
 | `/api/article/parse` | POST | 解析文章 | ArticleInput | ParsedArticle |
-| `/api/paragraph/analyze` | POST | 分析段落难度 | {paragraph} | DifficultyResult |
 | `/api/diagnose` | POST | 翻译诊断 | DiagnoseRequest | DiagnoseResult |
 | `/api/practice/generate` | POST | 生成练习题 | {knowledgePoints} | PracticeResult |
 
@@ -552,32 +551,7 @@ interface UserProgress {
 }
 ```
 
-#### 6.2.2 POST /api/paragraph/analyze
-
-**请求**
-```json
-{
-  "paragraph": "The fundamental limitation of traditional machine learning..."
-}
-```
-
-**响应**
-```json
-{
-  "success": true,
-  "data": {
-    "difficulty": 45,
-    "level": "L2",
-    "highlights": [
-      {"word": "fundamental", "difficulty": "cet6"},
-      {"phrase": "be dependent on", "type": "phrase"}
-    ],
-    "suggestion": "适合日常练习，包含常用句式结构"
-  }
-}
-```
-
-#### 6.2.3 POST /api/diagnose
+#### 6.2.2 POST /api/diagnose
 
 **请求**
 ```json
