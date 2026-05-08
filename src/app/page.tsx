@@ -435,22 +435,27 @@ export default function HomePage() {
                         <ChevronRight className="w-5 h-5 text-[var(--muted-foreground)]" />
                       </div>
                     </div>
-                    {/* Progress bar */}
+                    {/* Reading Status */}
                     <div className="mt-4">
-                      <div className="h-2 bg-[var(--muted)] rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-[var(--primary)] to-[var(--success)] rounded-full transition-all duration-500"
-                          style={{
-                            width: `${
-                              article.paragraphs.filter((p) => p.status === "completed").length /
-                              article.paragraphs.length *
-                              100
-                            }%`,
-                          }}
-                        />
-                      </div>
-                      <p className="text-xs text-[var(--muted-foreground)] mt-1">
-                        {article.paragraphs.filter((p) => p.status === "completed").length} / {article.paragraphs.length} 段落已阅读
+                      <p className="text-sm text-[var(--muted-foreground)]">
+                        {(() => {
+                          const completedCount = article.paragraphs.filter((p) => p.status === "completed").length;
+                          const totalCount = article.paragraphs.length;
+                          
+                          // 已读完
+                          if (completedCount === totalCount) {
+                            return "已读完";
+                          }
+                          
+                          // 找到第一个 in_progress 的段落
+                          const inProgressIndex = article.paragraphs.findIndex((p) => p.status === "in_progress");
+                          if (inProgressIndex !== -1) {
+                            return `读到第 ${inProgressIndex + 1} 段`;
+                          }
+                          
+                          // 未开始
+                          return "未阅读";
+                        })()}
                       </p>
                     </div>
                   </CardContent>
