@@ -11,7 +11,7 @@ const globalForDb = globalThis as typeof globalThis & {
 function getPool(): Pool {
   if (!globalForDb.__readInsightPgPool) {
     if (!process.env.DATABASE_URL) {
-      throw new Error("DATABASE_URL is not set");
+      throw new Error("DATABASE_NOT_CONFIGURED: 请配置 DATABASE_URL 环境变量以启用知识库功能");
     }
     globalForDb.__readInsightPgPool = new Pool({
       connectionString: process.env.DATABASE_URL,

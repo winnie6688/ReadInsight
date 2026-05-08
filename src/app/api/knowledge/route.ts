@@ -207,6 +207,16 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.api.error("POST", "/api/knowledge", error);
+    
+    // 检查是否为数据库未配置错误
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes("DATABASE_NOT_CONFIGURED")) {
+      return NextResponse.json(
+        { success: false, error: "知识库功能暂不可用，请配置数据库连接" },
+        { status: 503 }
+      );
+    }
+    
     return NextResponse.json(
       { success: false, error: "保存失败" },
       { status: 500 }

@@ -199,8 +199,15 @@ export default function PracticePage() {
           });
         } else {
           const error = await response.json();
+          // 检查是否为数据库未配置错误
+          const isDbNotConfigured = response.status === 503 || 
+            error.error?.includes("数据库") || 
+            error.error?.includes("DATABASE");
+          
           toast.error("存入知识库失败", {
-            description: error.message || "请稍后重试",
+            description: isDbNotConfigured 
+              ? "知识库功能暂不可用，请联系管理员配置数据库" 
+              : error.error || error.message || "请稍后重试",
           });
         }
       } catch (error) {
