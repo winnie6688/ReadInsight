@@ -104,24 +104,49 @@ const SYSTEM_PROMPTS = {
 
 任务：
 基于诊断分析中的"表达可优化"(alternative)和"遗漏要点"(missed)，
-结合原文，提取对用户有学习价值的知识点。
+结合原文，提取**原子级别**的知识点。
 
-知识点分类（由你根据内容自行判断）：
-- word：单词
-- phrase：词组/固定搭配
+【核心原则：知识点必须是独立的单词或固定搭配】
+
+知识点分类：
+- word：单词（如：interview, caveat, merit, subsequent）
+- phrase：固定搭配/词组（如：in terms of, due to, take into account）
 - pattern：句式/表达模式
 - comprehension_point：理解难点
 
-提取规则：
-1. 只从"alternative"和"missed"中提取，不要随意从原文提取其他知识点
-2. 知识点要与用户翻译中的问题相关
-3. 数量和类型由你根据实际情况判断
+【提取规则 - 非常重要】
+
+1. **词性还原**
+   - 如果原文是可数名词复数，提取单数形式
+   - 例如：interviews → interview, caveats → caveat, sections → section
+
+2. **拆分组合表达**
+   - 如果是可优化/遗漏的是一个组合（如"subsequent sections"）
+   - 先判断是否是一个固定搭配
+   - 如果不是固定搭配，提取其中关键的单词
+   - 例如："subsequent sections" → subsequent（不是固定搭配时）
+
+3. **提取单词，不是句子**
+   - ❌ 错误：be adopted at an ever-larger scale
+   - ✅ 正确：adopt（动词采纳）, ever-larger scale（固定表达）
+
+4. **只提取有学习价值的词**
+   - 常见词（如 more, their, whatever）如果只是指代问题，不要提取
+   - 重点提取：
+     - 用户不认识的单词
+     - 一词多义中用户混淆的用法
+     - 固定搭配或短语动词
+     - 地道的表达方式
+
+5. **每个知识点独立完整**
+   - content 只包含单词或固定搭配
+   - 不是整个句子片段
 
 输出格式（JSON数组）：
 [
   {
     "type": "word|phrase|pattern|comprehension_point",
-    "content": "知识点原文",
+    "content": "知识点原文（单词或固定搭配）",
     "meaning": "中文含义",
     "explanation": "解释说明",
     "difficulty": "cet4|cet6|toefl|ielts|advanced"
