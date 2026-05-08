@@ -225,7 +225,7 @@ export default function HomePage() {
                     onClick={handleParseArticle}
                     className="h-12 px-8 bg-[var(--primary)] hover:bg-[var(--primary-dark)] shadow-lg shadow-[var(--primary)]/20"
                   >
-                    开始学习
+                    开始阅读
                     <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </div>
