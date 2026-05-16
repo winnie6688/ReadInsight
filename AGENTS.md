@@ -83,6 +83,12 @@ pnpm ts-check
 
 # 代码检查
 pnpm lint
+
+# 数据库迁移
+pnpm db:migrate
+
+# 快速同步空数据库（开发期）
+pnpm db:push
 ```
 
 ## API 接口
@@ -103,6 +109,7 @@ pnpm lint
 3. **Hydration 问题**：使用 Zustand 持久化状态，避免 SSR/CSR 不一致
 4. **数据库延迟初始化**：`src/lib/db.ts` 使用 Proxy 实现延迟初始化，允许在不设置 `DATABASE_URL` 的情况下进行构建。实际连接在首次 API 调用时才建立。
 5. **构建时环境变量**：构建时不需要 `DATABASE_URL`，运行时必须设置。
+6. **Supabase 迁云**：只把 Supabase 作为 PostgreSQL 使用，继续通过 Drizzle 和 Next.js API 访问数据库；接入步骤见 `docs/SUPABASE_DRIZZLE_SETUP.md`。
 
 ## 日志系统
 

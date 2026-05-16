@@ -1,6 +1,11 @@
+import { and, desc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/db";
+import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import {
+  knowledgePointEvents,
+  knowledgePoints,
+} from "@/storage/database/shared/schema";
 
 const DEFAULT_USER_ID = "local-dev-user";
 const DEFAULT_PRACTICE_NEED = 3;
@@ -31,7 +36,26 @@ function normalizeContent(content: string) {
 }
 
 function buildNextReviewAt(now: Date) {
-  return new Date(now.getTime() + ONE_DAY_MS).toISOString();
+  return new Date(now.getTime() + ONE_DAY_MS);
+}
+
+function mapKnowledgePointRow(row: typeof knowledgePoints.$inferSelect) {
+  return {
+    id: row.id,
+    type: row.type,
+    content: row.content,
+    meaning: row.meaning,
+    explanation: row.explanation,
+    difficulty: row.difficulty,
+    example: row.exampleSentence,
+    sourceParagraphId: row.sourceParagraphId,
+    sourceArticleId: row.sourceArticleId,
+    sourceArticleTitle: row.sourceArticleTitle,
+    masterStatus: row.masterStatus,
+    reviewCount: row.reviewCount,
+    lastReviewAt: row.lastReviewedAt?.getTime(),
+    createdAt: row.createdAt.getTime(),
+  };
 }
 
 // 保存知识点到知识库
@@ -57,186 +81,121 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const now = new Date().toISOString();
-    const savedPoints: Array<{
-      id: string;
-      type: string;
-      content: string;
-      meaning: string;
-      explanation: string | null;
-      difficulty: string;
-      example: string | null;
-      sourceParagraphId: string | null;
-      sourceArticleId: string | null;
-      sourceArticleTitle: string | null;
-      masterStatus: string;
-      reviewCount: number;
-      lastReviewAt: number | null;
-      createdAt: number;
-    }> = [];
+    const now = new Date();
+    const savedPoints: Array<ReturnType<typeof mapKnowledgePointRow>> = [];
 
-    for (const point of points) {
-      if (!point.content?.trim()) {
-        continue;
-      }
-
-      const type = point.type || "word";
-      const normalizedContent = normalizeContent(point.content);
-      const content = point.content.trim();
-      const meaning = point.meaning?.trim() || "";
-      const explanation = point.explanation?.trim() || null;
-      const difficulty = point.difficulty || "cet4";
-      const example = point.example?.trim() || null;
-
-      // 查询是否已存在
-      const { data: existing, error: selectError } = await supabase
-        .from("knowledge_points")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("type", type)
-        .eq("normalized_content", normalizedContent)
-        .eq("is_active", true)
-        .single();
-
-      if (selectError && selectError.code !== "PGRST116") {
-        logger.error("查询知识点失败", { error: selectError });
-      }
-
-      if (!existing) {
-        // 新增知识点
-        const { data: inserted, error: insertError } = await supabase
-          .from("knowledge_points")
-          .insert({
-            user_id: userId,
-            type,
-            content,
-            normalized_content: normalizedContent,
-            meaning,
-            explanation,
-            difficulty,
-            example_sentence: example,
-            source_article_id: articleId || null,
-            source_article_title: articleTitle || null,
-            source_paragraph_id: paragraphId || null,
-            master_status: "learning",
-            is_active: true,
-            encounter_count: 1,
-            review_count: 0,
-            practice_need: DEFAULT_PRACTICE_NEED,
-            correct_streak: 0,
-            last_seen_at: now,
-            next_review_at: buildNextReviewAt(new Date()),
-          })
-          .select()
-          .single();
-
-        if (insertError) {
-          logger.error("插入知识点失败", { error: insertError });
+    await db.transaction(async (tx) => {
+      for (const point of points) {
+        if (!point.content?.trim()) {
           continue;
         }
 
-        // 记录事件
-        await supabase.from("knowledge_point_events").insert({
-          knowledge_point_id: inserted.id,
-          user_id: userId,
-          event_type: "created",
-          event_source: "reading",
-          article_id: articleId || null,
-          paragraph_id: paragraphId || null,
+        const type = point.type || "word";
+        const normalizedContent = normalizeContent(point.content);
+
+        const [existing] = await tx
+          .select()
+          .from(knowledgePoints)
+          .where(
+            and(
+              eq(knowledgePoints.userId, userId),
+              eq(knowledgePoints.type, type),
+              eq(knowledgePoints.normalizedContent, normalizedContent)
+            )
+          )
+          .limit(1);
+
+        if (!existing) {
+          const [inserted] = await tx
+            .insert(knowledgePoints)
+            .values({
+              userId,
+              type,
+              content: point.content.trim(),
+              normalizedContent,
+              meaning: point.meaning?.trim() || "",
+              explanation: point.explanation?.trim() || null,
+              difficulty: point.difficulty || "cet4",
+              exampleSentence: point.example?.trim() || null,
+              sourceArticleId: articleId || null,
+              sourceArticleTitle: articleTitle || null,
+              sourceParagraphId: paragraphId || null,
+              masterStatus: "learning",
+              isActive: true,
+              encounterCount: 1,
+              reviewCount: 0,
+              practiceNeed: DEFAULT_PRACTICE_NEED,
+              correctStreak: 0,
+              lastSeenAt: now,
+              nextReviewAt: buildNextReviewAt(now),
+            })
+            .returning();
+
+          await tx.insert(knowledgePointEvents).values({
+            knowledgePointId: inserted.id,
+            userId,
+            eventType: "created",
+            eventSource: "reading",
+            articleId: articleId || null,
+            paragraphId: paragraphId || null,
+            payload: {
+              content: inserted.content,
+              meaning: inserted.meaning,
+              practiceNeed: inserted.practiceNeed,
+            },
+          });
+
+          savedPoints.push(mapKnowledgePointRow(inserted));
+          continue;
+        }
+
+        const nextPracticeNeed = Math.min(existing.practiceNeed + 1, 8);
+        const nextReviewAt =
+          !existing.nextReviewAt || existing.nextReviewAt.getTime() > buildNextReviewAt(now).getTime()
+            ? buildNextReviewAt(now)
+            : existing.nextReviewAt;
+
+        const [updated] = await tx
+          .update(knowledgePoints)
+          .set({
+            meaning: existing.meaning || point.meaning?.trim() || "",
+            explanation: existing.explanation || point.explanation?.trim() || null,
+            difficulty: existing.difficulty || point.difficulty || "cet4",
+            exampleSentence: existing.exampleSentence || point.example?.trim() || null,
+            sourceArticleId: existing.sourceArticleId || articleId || null,
+            sourceArticleTitle: existing.sourceArticleTitle || articleTitle || null,
+            sourceParagraphId: existing.sourceParagraphId || paragraphId || null,
+            masterStatus: "learning",
+            isActive: true,
+            encounterCount: existing.encounterCount + 1,
+            practiceNeed: nextPracticeNeed,
+            correctStreak: 0,
+            lastSeenAt: now,
+            nextReviewAt,
+            archivedAt: null,
+            updatedAt: now,
+          })
+          .where(eq(knowledgePoints.id, existing.id))
+          .returning();
+
+        await tx.insert(knowledgePointEvents).values({
+          knowledgePointId: updated.id,
+          userId,
+          eventType: "re_encountered",
+          eventSource: "reading",
+          articleId: articleId || null,
+          paragraphId: paragraphId || null,
           payload: {
-            content: inserted.content,
-            meaning: inserted.meaning,
-            practice_need: inserted.practice_need,
+            content: updated.content,
+            previousPracticeNeed: existing.practiceNeed,
+            currentPracticeNeed: updated.practiceNeed,
+            encounterCount: updated.encounterCount,
           },
         });
 
-        savedPoints.push({
-          id: inserted.id,
-          type: inserted.type,
-          content: inserted.content,
-          meaning: inserted.meaning,
-          explanation: inserted.explanation,
-          difficulty: inserted.difficulty,
-          example: inserted.example_sentence,
-          sourceParagraphId: inserted.source_paragraph_id,
-          sourceArticleId: inserted.source_article_id,
-          sourceArticleTitle: inserted.source_article_title,
-          masterStatus: inserted.master_status,
-          reviewCount: inserted.review_count,
-          lastReviewAt: inserted.last_reviewed_at ? new Date(inserted.last_reviewed_at).getTime() : null,
-          createdAt: new Date(inserted.created_at).getTime(),
-        });
-        continue;
+        savedPoints.push(mapKnowledgePointRow(updated));
       }
-
-      // 更新已有知识点
-      const nextPracticeNeed = Math.min((existing.practice_need || DEFAULT_PRACTICE_NEED) + 1, 8);
-      const existingNextReview = existing.next_review_at ? new Date(existing.next_review_at).getTime() : 0;
-      const newNextReview = buildNextReviewAt(new Date());
-      const nextReviewAt = existingNextReview > new Date(newNextReview).getTime() ? existing.next_review_at : newNextReview;
-
-      const { data: updated, error: updateError } = await supabase
-        .from("knowledge_points")
-        .update({
-          meaning: existing.meaning || meaning,
-          explanation: existing.explanation || explanation,
-          difficulty: existing.difficulty || difficulty,
-          example_sentence: existing.example_sentence || example,
-          source_article_id: existing.source_article_id || articleId || null,
-          source_article_title: existing.source_article_title || articleTitle || null,
-          source_paragraph_id: existing.source_paragraph_id || paragraphId || null,
-          master_status: "learning",
-          is_active: true,
-          encounter_count: (existing.encounter_count || 0) + 1,
-          practice_need: nextPracticeNeed,
-          correct_streak: 0,
-          last_seen_at: now,
-          next_review_at: nextReviewAt,
-          archived_at: null,
-          updated_at: now,
-        })
-        .eq("id", existing.id)
-        .select()
-        .single();
-
-      if (updateError) {
-        logger.error("更新知识点失败", { error: updateError });
-        continue;
-      }
-
-      // 记录事件
-      await supabase.from("knowledge_point_events").insert({
-        knowledge_point_id: updated.id,
-        user_id: userId,
-        event_type: "re_encountered",
-        event_source: "reading",
-        article_id: articleId || null,
-        paragraph_id: paragraphId || null,
-        payload: {
-          content: updated.content,
-          previousPracticeNeed: existing.practice_need,
-          currentPracticeNeed: updated.practice_need,
-          encounterCount: updated.encounter_count,
-        },
-      });
-
-      savedPoints.push({
-        id: updated.id,
-        type: updated.type,
-        content: updated.content,
-        meaning: updated.meaning,
-        explanation: updated.explanation,
-        difficulty: updated.difficulty,
-        example: updated.example_sentence,
-        sourceParagraphId: updated.source_paragraph_id,
-        sourceArticleId: updated.source_article_id,
-        sourceArticleTitle: updated.source_article_title,
-        masterStatus: updated.master_status,
-        reviewCount: updated.review_count,
-        lastReviewAt: updated.last_reviewed_at ? new Date(updated.last_reviewed_at).getTime() : null,
-        createdAt: new Date(updated.created_at).getTime(),
-      });
-    }
+    });
 
     const duration = Date.now() - startTime;
     logger.api.response("POST", "/api/knowledge", 200, duration);
@@ -248,6 +207,14 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.api.error("POST", "/api/knowledge", error);
+
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes("DATABASE_NOT_CONFIGURED")) {
+      return NextResponse.json(
+        { success: false, error: "知识库功能暂不可用，请配置数据库连接" },
+        { status: 503 }
+      );
+    }
 
     return NextResponse.json(
       { success: false, error: "保存失败" },
@@ -265,73 +232,28 @@ export async function GET(request: NextRequest) {
 
     logger.api.request("GET", "/api/knowledge", { userId });
 
-    const { data: rows, error } = await supabase
-      .from("knowledge_points")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      logger.error("获取知识点失败", { error });
-      return NextResponse.json(
-        { success: false, error: "获取失败" },
-        { status: 500 }
-      );
-    }
+    const rows = await db
+      .select()
+      .from(knowledgePoints)
+      .where(eq(knowledgePoints.userId, userId))
+      .orderBy(desc(knowledgePoints.createdAt));
 
     const grouped = rows.reduce<
-      Array<{
-        articleId: string;
-        articleTitle: string;
-        points: Array<{
-          id: string;
-          type: string;
-          content: string;
-          meaning: string;
-          explanation: string | null;
-          difficulty: string;
-          example: string | null;
-          sourceParagraphId: string | null;
-          sourceArticleId: string | null;
-          sourceArticleTitle: string | null;
-          masterStatus: string;
-          reviewCount: number;
-          lastReviewAt: number | null;
-          createdAt: number;
-        }>;
-      }>
+      Array<{ articleId: string; articleTitle: string; points: Array<ReturnType<typeof mapKnowledgePointRow>> }>
     >((acc, row) => {
-      const articleKey = row.source_article_id || "unknown";
-      const articleTitle = row.source_article_title || "未归属文章";
+      const articleKey = row.sourceArticleId || "unknown";
+      const articleTitle = row.sourceArticleTitle || "未归属文章";
       const existingGroup = acc.find((item) => item.articleId === articleKey);
 
-      const point = {
-        id: row.id,
-        type: row.type,
-        content: row.content,
-        meaning: row.meaning,
-        explanation: row.explanation,
-        difficulty: row.difficulty,
-        example: row.example_sentence,
-        sourceParagraphId: row.source_paragraph_id,
-        sourceArticleId: row.source_article_id,
-        sourceArticleTitle: row.source_article_title,
-        masterStatus: row.master_status,
-        reviewCount: row.review_count,
-        lastReviewAt: row.last_reviewed_at ? new Date(row.last_reviewed_at).getTime() : null,
-        createdAt: new Date(row.created_at).getTime(),
-      };
-
       if (existingGroup) {
-        existingGroup.points.push(point);
+        existingGroup.points.push(mapKnowledgePointRow(row));
         return acc;
       }
 
       acc.push({
         articleId: articleKey,
         articleTitle,
-        points: [point],
+        points: [mapKnowledgePointRow(row)],
       });
       return acc;
     }, []);
