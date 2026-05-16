@@ -85,8 +85,6 @@ interface ApiResponse<T> {
         "id": "p_001",
         "index": 0,
         "content": "The fundamental limitation of...",
-        "difficulty": 45,
-        "difficultyLevel": "L2",
         "status": "unread"
       }
     ],
@@ -110,54 +108,7 @@ interface ApiResponse<T> {
 
 ---
 
-### 2.2 历史方案：段落难度分析接口
-
-> 当前未实现。段落难度评估/推荐机制已从当前产品主链路中移除。
-
-**端点**: `POST /api/paragraph/analyze`
-
-**功能**: 分析单个段落的难度
-
-**请求体**:
-```typescript
-{
-  "paragraph": "The fundamental limitation of traditional machine learning..."
-}
-```
-
-**响应**:
-```typescript
-{
-  "success": true,
-  "data": {
-    "difficulty": 45,
-    "difficultyLevel": "L2",
-    "highlights": [
-      {
-        "type": "word",
-        "content": "fundamental",
-        "difficulty": "cet6",
-        "meaning": "根本的，基本的"
-      },
-      {
-        "type": "phrase",
-        "content": "be dependent on",
-        "meaning": "取决于，依赖于"
-      },
-      {
-        "type": "pattern",
-        "content": "Unlike X, Y...",
-        "meaning": "与X不同，Y..."
-      }
-    ],
-    "suggestion": "适合日常练习，包含常用词组 be dependent on"
-  }
-}
-```
-
----
-
-### 2.3 翻译诊断接口
+### 2.2 翻译诊断接口
 
 **端点**: `POST /api/diagnose`
 

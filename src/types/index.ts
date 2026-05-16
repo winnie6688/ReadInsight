@@ -5,9 +5,6 @@
 // 文章输入类型
 export type ArticleInputType = "url" | "paste" | "upload";
 
-// 文章难度等级
-export type DifficultyLevel = "L1" | "L2" | "L3" | "L4";
-
 // 知识点类型
 export type KnowledgePointType = "word" | "phrase" | "pattern" | "comprehension_point";
 

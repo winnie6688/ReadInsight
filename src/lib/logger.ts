@@ -49,12 +49,67 @@ function log(level: "INFO" | "WARN" | "ERROR" | "DEBUG", message: string, meta?:
   }
 }
 
+export type FrontendLogEntry = {
+  timestamp?: string;
+  level?: string;
+  message?: string;
+  data?: unknown;
+  url?: string;
+  userAgent?: string;
+};
+
+function sanitizeText(value: string, maxLength: number) {
+  const normalized = value.replace(/[\r\n]+/g, " ").trim();
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength)}...`;
+}
+
+function safeJsonStringify(value: unknown, maxLength: number) {
+  try {
+    const text = JSON.stringify(value);
+    if (text.length <= maxLength) return text;
+    return `${text.slice(0, maxLength)}...`;
+  } catch {
+    return JSON.stringify("[unserializable]");
+  }
+}
+
+function formatFrontendLogLine(entry: FrontendLogEntry) {
+  const timestamp = sanitizeText(entry.timestamp || new Date().toISOString(), 64);
+  const level = sanitizeText((entry.level || "info").toUpperCase(), 16);
+  const message = sanitizeText(entry.message || "", 2000);
+  const meta = {
+    data: entry.data,
+    url: entry.url,
+    userAgent: entry.userAgent,
+  };
+  const metaStr = safeJsonStringify(meta, 8000);
+  return `[${timestamp}] [${level}] ${message} | ${metaStr}\n`;
+}
+
+function writeFrontendLogs(entries: FrontendLogEntry[]) {
+  if (!entries.length) return { written: 0, dropped: 0 };
+
+  const validEntries = entries.filter((e) => typeof e?.message === "string" && e.message.trim().length > 0);
+  const lines = validEntries.map(formatFrontendLogLine).join("");
+
+  const logDir = ensureLogDir();
+  const filePath = path.join(logDir, "console.log");
+  fs.appendFileSync(filePath, lines, "utf-8");
+
+  return { written: validEntries.length, dropped: entries.length - validEntries.length };
+}
+
 // 日志导出
 export const logger = {
   info: (message: string, meta?: Record<string, unknown>) => log("INFO", message, meta),
   warn: (message: string, meta?: Record<string, unknown>) => log("WARN", message, meta),
   error: (message: string, meta?: Record<string, unknown>) => log("ERROR", message, meta),
   debug: (message: string, meta?: Record<string, unknown>) => log("DEBUG", message, meta),
+
+  client: {
+    ingest: (entries: FrontendLogEntry[]) => writeFrontendLogs(entries),
+  },
 
   // API 请求日志
   api: {

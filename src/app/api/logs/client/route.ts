@@ -1,86 +1,65 @@
-import fs from "fs";
-import path from "path";
 import { NextRequest, NextResponse } from "next/server";
+import { logger, type FrontendLogEntry } from "@/lib/logger";
 
-type ClientLogLevel = "info" | "warn" | "error" | "debug";
+export const runtime = "nodejs";
 
-interface ClientLogEntry {
-  timestamp?: string;
-  level?: ClientLogLevel;
-  message?: string;
-  data?: unknown;
-  url?: string;
-  userAgent?: string;
-}
-
-const PRIMARY_LOG_DIR = "/app/work/logs/bypass";
-const FALLBACK_LOG_DIR = path.join(process.cwd(), ".coze-logs");
-const MAX_LOGS_PER_BATCH = 50;
-
-function resolveLogDir() {
-  try {
-    fs.mkdirSync(PRIMARY_LOG_DIR, { recursive: true });
-    return PRIMARY_LOG_DIR;
-  } catch {
-    fs.mkdirSync(FALLBACK_LOG_DIR, { recursive: true });
-    return FALLBACK_LOG_DIR;
-  }
-}
-
-function normalizeLog(entry: ClientLogEntry) {
-  return {
-    timestamp: entry.timestamp || new Date().toISOString(),
-    level: entry.level || "info",
-    message: String(entry.message || ""),
-    data: entry.data,
-    url: entry.url,
-    userAgent: entry.userAgent,
-  };
-}
+const MAX_LOGS_PER_REQUEST = 200;
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+
+  let body: unknown;
   try {
-    const body = (await request.json()) as { logs?: ClientLogEntry[] };
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      {
+        success: false,
+        error: { code: "INVALID_JSON", message: "请求体必须是 JSON" },
+      },
+      { status: 400 }
+    );
+  }
 
-    if (!Array.isArray(body.logs)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "INVALID_PARAMS",
-            message: "logs 必须是数组",
-          },
-        },
-        { status: 400 }
-      );
-    }
+  const logs = (body as { logs?: unknown })?.logs;
+  if (!Array.isArray(logs)) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: { code: "INVALID_PARAMS", message: "logs 必须是数组" },
+      },
+      { status: 400 }
+    );
+  }
 
-    const logs = body.logs.slice(0, MAX_LOGS_PER_BATCH).map(normalizeLog);
-    const logDir = resolveLogDir();
-    const filePath = path.join(logDir, "console.log");
-    const content = logs.map((log) => JSON.stringify(log)).join("\n");
+  const received = logs.length;
+  const limitedLogs = logs.slice(0, MAX_LOGS_PER_REQUEST) as FrontendLogEntry[];
+  const droppedByLimit = received - limitedLogs.length;
 
-    if (content) {
-      fs.appendFileSync(filePath, `${content}\n`, "utf-8");
-    }
+  try {
+    const { written, dropped } = logger.client.ingest(limitedLogs);
+    const duration = Date.now() - startTime;
+
+    logger.api.response("POST", "/api/logs/client", 200, duration);
 
     return NextResponse.json({
       success: true,
       data: {
-        count: logs.length,
+        received,
+        written,
+        dropped: dropped + droppedByLimit,
+        duration,
       },
     });
   } catch (error) {
+    logger.api.error("POST", "/api/logs/client", error);
     return NextResponse.json(
       {
         success: false,
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "前端日志写入失败",
-          details: error instanceof Error ? error.message : String(error),
-        },
+        error: { code: "INTERNAL_ERROR", message: "日志写入失败" },
       },
       { status: 500 }
     );
   }
 }
+
