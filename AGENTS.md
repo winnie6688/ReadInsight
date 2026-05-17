@@ -266,10 +266,10 @@ enabled = true
 
 ### 预览链路
 
-- **预览端口**: 5000
+- **预览端口**: 3000
 - **预览命令**: `bash ./scripts/dev.sh`
-- **开发服务器**: 自定义 Next.js server (`src/server.ts`)，绑定 `0.0.0.0:5000`
-- **预览验证**: `curl http://localhost:5000` 返回 200
+- **开发服务器**: 自定义 Next.js server (`src/server.ts`)，绑定 `0.0.0.0:3000`
+- **预览验证**: `curl http://localhost:3000` 返回 200
 
 ### 部署链路
 
@@ -279,7 +279,7 @@ enabled = true
   - 打包 server (`pnpm tsup src/server.ts`)
 - **启动**: `bash ./scripts/start.sh`
   - 启动打包后的服务 (`node dist/server.js`)
-  - 端口: 5000
+  - 端口: 3000
 
 ### 技术项目与工作区关系
 
