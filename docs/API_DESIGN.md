@@ -17,7 +17,7 @@
 
 | 环境 | 基础 URL |
 |------|----------|
-| 开发环境 | `http://localhost:5000` |
+| 开发环境 | `http://localhost:3000` |
 | 生产环境 | `https://{COZE_PROJECT_DOMAIN_DEFAULT}` |
 
 ### 1.2 通用说明
