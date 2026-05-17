@@ -1,0 +1,17 @@
+services:
+  readinsight:
+    build:
+      context: .
+    image: readinsight-web:latest
+    container_name: readinsight-web
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      COZE_PROJECT_ENV: PROD
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./logs:/app/work/logs/bypass
